@@ -1,5 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
+import Description from "../layouts/Description.astro";
+import Matching from "../layouts/Matching.astro";
 ---
 
 <Base>
@@ -7,10 +9,7 @@ import Base from "../layouts/Base.astro";
 		<div class="h-full w-full flex items-center flex-col">
 			<div class="h-full w-full grow-0 shrink-0 basis-16 flex items-center gap-x-4">
 				<button id="openBtn">사용법 설명</button>
-				<dialog id="description" class="fixed inset-16 w-auto h-auto rounded-xl">
-					<p>모달!</p>
-					<button id="closeBtn">닫기</button>
-				</dialog>
+				<Description />
 				<button id="openKeyword">키워드 CSV 로드</button>
 				<input type="file" id="keyword" accept=".csv" class="hidden"/>
 				<button id="openTarget">타겟코드 CSV 로드</button>
@@ -21,25 +20,22 @@ import Base from "../layouts/Base.astro";
 			</div>
 			<div class="h-full w-full grow shrink-0 basis-0 flex-col flex items-center justify-center">
 				<div id="main-spreadsheet"></div>
-				<dialog id="mapping" class="fixed inset-16 w-auto h-auto rounded-xl">
-					<p>모달!</p>
-					<button id="closeBtn">닫기</button>
-				</dialog>
+				<Matching />
 			</div>
 		</div>
 	</div>
 </Base>
 
 <script is:inline>
+// import { undefined } from "astro:schema";
+
 	// 글로벌 변수
 	let isKeywordReady = false;		// 키워드 csv 로드 완료 여부
-	let isTargetReady = false;		// 타겟 csv 로드 완료 여부
+	let isTargetReady = true;		// 타겟 csv 로드 완료 여부
 	const $msg = document.getElementById("msg");
 	let keyobj = [];
 	let tarobj = [];
-</script>
 
-<script is:inline>
 	// 메인 스프레드시트 초기화
 	const MAX_ROWS = 20;
 	const MAX_COLS = 4;
@@ -47,13 +43,14 @@ import Base from "../layouts/Base.astro";
 	const elWidthBase = el.parentElement.clientWidth - 50;
 	const msg = document.getElementById("msg");
 
+	let coord = {x: undefined, y: undefined};
 	const spreadsheet = jspreadsheet(el, {
 		data: [],
 		width: "100%",
 		columns: [
 			{ type: "text", title: "A 코드", width: elWidthBase / 10 },
 			{ type: "text", title: "A 이름", width: elWidthBase / 10 * 4 },
-			{ type: "text", title: "B 코드", width: elWidthBase / 10, readOnly: true, backgroundColor: "#000000" },
+			{ type: "text", title: "B 코드", width: elWidthBase / 10, readOnly: true },
 			{ type: "text", title: "B 이름", width: elWidthBase / 10 * 4, readOnly: true },
 		],
 		minDimensions: [4, 20],
@@ -66,16 +63,24 @@ import Base from "../layouts/Base.astro";
 		},
 		onbeforedeleterow: function (_instance, _rows) { return false; },
 		onbeforedeletecolumn: function (_instance, _columns) { return false; },
-		onselection: function (instance, selection) {
-			// const [startX, startY] = selection[0];
-			// selectedCell = { x: startX, y: startY };
-			// console.log(`선택된 셀: (${startX}, ${startY})`);
-			console.log(selection);
-		}
+		// onselection: function(_instance, x1, y1, x2, y2, origin) {
+		// 	coord.x = x2;
+		// 	coord.y = y2;
+		// },
+		allowDeleteRow: false,
+		// onerror: function(spreadsheet, result) {
+		// 	// 아무 것도 하지 않음 → 기본 alert 무력화
+		// 	console.log('Jspreadsheet 오류 발생:', result);
+		// }
 	});
-</script>
 
-<script is:inline>
+	document.onkeydown = (e) => {
+		if (document.querySelector('dialog:modal') !== null) {
+			e.stopPropagation();
+		}
+	};
+
+
 	// 사용법, csv 로드
 	const $description = document.getElementById("description");
 	const $openBtn = document.getElementById("openBtn");
@@ -84,6 +89,7 @@ import Base from "../layouts/Base.astro";
 	const $openTarget = document.getElementById("openTarget");
 	const $keyword = document.getElementById("keyword");
 	const $target = document.getElementById("target");
+	const $matching = document.getElementById("matching");
 
 	$openBtn.onclick = () => $description.showModal();
 	$closeBtn.onclick = () => $description.close();
@@ -120,7 +126,9 @@ import Base from "../layouts/Base.astro";
 			},
 			complete: function (_) {
 				$msg.innerHTML = `키워드 CSV 로딩 완료!! 총 ${keyobj.length}개 키워드가 준비되었습니다.`;
-				console.log(keyobj);
+				// console.log(keyobj);
+				$openKeyword.innerHTML = "키워드 CSV 로드 완료";
+				$openKeyword.setAttribute("disabled", "true");
 				isKeywordReady = true;
 			}
 		});
@@ -158,21 +166,41 @@ import Base from "../layouts/Base.astro";
 			},
 			complete: function (_) {
 				$msg.innerHTML = `타겟 CSV 로딩 완료!! 총 ${tarobj.length}개 코드가 준비되었습니다.`;
-				console.log(tarobj);
+				// console.log(tarobj);
+				$openTarget.innerHTML = "타겟 CSV 로드 완료";
+				$openTarget.setAttribute("disabled", "true");
 				isTargetReady = true;
 			}
 		});
 	};
-</script>
 
-<script is:inline>
-	document.onkeydown = (e) => {
-		if (e.code === 'Space') {
-			// const selected = spreadsheet.getSelected(false); // false: 좌표 객체 반환
-			// if (selected && selected.length > 0) {
-			// 	const { x, y } = selected[0]; // 첫 번째 선택 셀
-			// 	console.log(`선택된 셀: (${x}, ${y})`);
-			// }
-		}
-	};
+
+	const selected = undefined;
+
+	const main_spreadsheet_btn = [];
+	for (let i = 0; i < MAX_ROWS; i++) {
+		main_spreadsheet_btn.push(document.querySelector(`#main-spreadsheet table td.jexcel_row[data-y="${i}"]`));
+	}
+	main_spreadsheet_btn.forEach((x, i) => {
+		x.onclick = (e) => {
+			// spreadsheet.setValue(`A${i+1}`, `${i}`, true);
+			// $matching.dataset.row = i;
+			
+
+			if (isKeywordReady && isTargetReady) {
+				$matching.showModal();
+				$msg.innerHTML = `${i+1} 행의 코드와 이름을 매핑합니다.`;
+
+				setTimeout(() => {
+					$keyfinded.focus();
+					// $keyfinded.click();
+				}, 100);
+
+				do_matching(i, spreadsheet, keyobj, tarobj);
+			} else {
+				$msg.innerHTML = `먼저 키워드, 타겟 CSV 파일을 로드하세요~`;
+			}
+		};
+	});
+
 </script>
