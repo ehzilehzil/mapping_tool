@@ -10,10 +10,14 @@ import Utils from "../layouts/Utils.astro";
 			<dialog id="description_modal">
 				<div class="my-4">설명서</div>
 				<ol class="my-4 list-decimal list-inside space-y-2 text-gray-800">
-					<li>매칭을 해야할 타겟 CSV 파일(ex. 88코드)을 로드합니다.</l1>
+					<li>매칭을 해야할 "타겟 CSV 파일"(ex. target.csv)을 로드합니다.</l1>
 					<li>"검색 키워드"에 키워드를 입력합니다. 복수 입력이 가능하며 공백으로 키워드들을 구분합니다.</li>
+					<ul class="list-disc pl-5 space-y-2 ml-4">
+						<li>검색 키워드는 최대 10개까지만 허용합니다.</li>
+						<li>영문 대소문자를 구별하지 않습니다.</li>
+					</ul>
 					<li>아래에 키워드 매칭이 되는 이름을 가진 타겟 검색 결과가 나오는데 매칭된 순서대로 최대 20개만 나옵니다.</li>
-					<li>정확히 매칭되는 코드를 찾았다면, 더블클릭 -&gt; ctrl+C 클릭 하여 복사합니다.</li>
+					<li>정확히 매칭되는 코드를 찾았다면, 코드를 더블클릭 -&gt; ctrl+C 클릭 하여 복사합니다.</li>
 				</ol>
 				<div class="my-4">ESC 키를 누르면 설명서를 닫습니다.</div>
 			</dialog>
@@ -123,15 +127,16 @@ import Utils from "../layouts/Utils.astro";
 		
 		let f = lazy.take(20,
 			lazy.filter((x) => {
-				let t = x.name;
-				return keywords.every((y) => t.indexOf(y) !== -1);
+				let t = x.name.toLowerCase();
+				return keywords.every((y) => t.indexOf(y.toLowerCase()) !== -1);
 			}, tarobj)
 		);
 
 		for (let x of f) {
 			let t = x.name;
 			for (let y of keywords) {
-				t = t.replace(new RegExp(y, 'g'), `<b>${y}</b>`);
+				// t = t.replace(new RegExp(y, 'ig'), `<b>${y}</b>`);
+				t = t.replace(new RegExp(y, 'ig'), (match) => `<b>${match}</b>`);
 			}
 			result += `<tr><td>${x.code}</td><td>${t}</td><td><a href="${x.image}" target="_blank">${x.image ? "이미지" : ""}</a></td></li>`;
 		}
