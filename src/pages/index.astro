@@ -1,0 +1,178 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base>
+	<div class="fixed top-0 right-0 bottom-0 left-0 p-1">
+		<div class="h-full w-full flex items-center flex-col">
+			<div class="h-full w-full grow-0 shrink-0 basis-16 flex items-center gap-x-4">
+				<button id="openBtn">사용법 설명</button>
+				<dialog id="description" class="fixed inset-16 w-auto h-auto rounded-xl">
+					<p>모달!</p>
+					<button id="closeBtn">닫기</button>
+				</dialog>
+				<button id="openKeyword">키워드 CSV 로드</button>
+				<input type="file" id="keyword" accept=".csv" class="hidden"/>
+				<button id="openTarget">타겟코드 CSV 로드</button>
+				<input type="file" id="target" accept=".csv" class="hidden"/>
+			</div>
+			<div class="h-full w-full grow-0 shrink-0 basis-8 flex items-center gap-x-4">
+				<div id="msg">코드 매핑 위한 툴입니다. 처음이라면 바로 위 "사용법 설명" 클릭하세요~</div>
+			</div>
+			<div class="h-full w-full grow shrink-0 basis-0 flex-col flex items-center justify-center">
+				<div id="main-spreadsheet"></div>
+				<dialog id="mapping" class="fixed inset-16 w-auto h-auto rounded-xl">
+					<p>모달!</p>
+					<button id="closeBtn">닫기</button>
+				</dialog>
+			</div>
+		</div>
+	</div>
+</Base>
+
+<script is:inline>
+	// 글로벌 변수
+	let isKeywordReady = false;		// 키워드 csv 로드 완료 여부
+	let isTargetReady = false;		// 타겟 csv 로드 완료 여부
+	const $msg = document.getElementById("msg");
+	let keyobj = [];
+	let tarobj = [];
+</script>
+
+<script is:inline>
+	// 메인 스프레드시트 초기화
+	const MAX_ROWS = 20;
+	const MAX_COLS = 4;
+	const el = document.getElementById("main-spreadsheet");
+	const elWidthBase = el.parentElement.clientWidth - 50;
+	const msg = document.getElementById("msg");
+
+	const spreadsheet = jspreadsheet(el, {
+		data: [],
+		width: "100%",
+		columns: [
+			{ type: "text", title: "A 코드", width: elWidthBase / 10 },
+			{ type: "text", title: "A 이름", width: elWidthBase / 10 * 4 },
+			{ type: "text", title: "B 코드", width: elWidthBase / 10, readOnly: true, backgroundColor: "#000000" },
+			{ type: "text", title: "B 이름", width: elWidthBase / 10 * 4, readOnly: true },
+		],
+		minDimensions: [4, 20],
+		contextmenu: {},
+		onbeforeinsertrow: function (_instance, rows) {
+			if (rows => MAX_ROWS - 1) return false;
+		},
+		onbeforeinsertcolumn: function (_instance, columns) {
+			if (columns => MAX_COLS - 1) return false;
+		},
+		onbeforedeleterow: function (_instance, _rows) { return false; },
+		onbeforedeletecolumn: function (_instance, _columns) { return false; },
+		onselection: function (instance, selection) {
+			// const [startX, startY] = selection[0];
+			// selectedCell = { x: startX, y: startY };
+			// console.log(`선택된 셀: (${startX}, ${startY})`);
+			console.log(selection);
+		}
+	});
+</script>
+
+<script is:inline>
+	// 사용법, csv 로드
+	const $description = document.getElementById("description");
+	const $openBtn = document.getElementById("openBtn");
+	const $closeBtn = document.getElementById("closeBtn");
+	const $openKeyword = document.getElementById("openKeyword");
+	const $openTarget = document.getElementById("openTarget");
+	const $keyword = document.getElementById("keyword");
+	const $target = document.getElementById("target");
+
+	$openBtn.onclick = () => $description.showModal();
+	$closeBtn.onclick = () => $description.close();
+
+	$openKeyword.onclick = () => $keyword.click();
+	$keyword.onchange = (e) => {
+		keyobj = [];
+		const file = e.target.files[0];
+
+		if (!file) {
+			$msg.innerHTML = `키워드 CSV 파일이 선택되지 않았습니다!`;
+			return;
+		};
+		const totalSize = file.size;
+		let loadedSize = 0;
+
+		$msg.innerHTML = `키워드 CSV 로딩 진행중... 0%`;
+
+		// console.log(file);
+
+		Papa.parse(file, {
+			worker: true, // 성능 향상
+			header: true,
+			newline: "\r\n",
+			skipEmptyLines: true,
+			step: function (results, parser) {
+				// 각 줄 처리 후 진행률 계산
+				loadedSize += results.meta.cursor; // 누적된 바이트 수
+				const percent = Math.min(Math.round((loadedSize / totalSize) * 100), 100);
+				// document.getElementById('progressBar').value = percent;
+				$msg.innerHTML = `키워드 CSV 로딩 진행중... ${percent}%`;
+				
+				if (results.data?.keyword) keyobj.push(results.data);
+			},
+			complete: function (_) {
+				$msg.innerHTML = `키워드 CSV 로딩 완료!! 총 ${keyobj.length}개 키워드가 준비되었습니다.`;
+				console.log(keyobj);
+				isKeywordReady = true;
+			}
+		});
+	};
+
+	$openTarget.onclick = () => $target.click();
+	$target.onchange = (e) => {
+		tarobj = [];
+		const file = e.target.files[0];
+
+		if (!file) {
+			$msg.innerHTML = `타겟 CSV 파일이 선택되지 않았습니다!`;
+			return;
+		};
+		const totalSize = file.size;
+		let loadedSize = 0;
+
+		$msg.innerHTML = `타겟 CSV 로딩 진행중... 0%`;
+
+		// console.log(file);
+
+		Papa.parse(file, {
+			worker: true, // 성능 향상
+			header: true,
+			newline: "\r\n",
+			skipEmptyLines: true,
+			step: function (results, parser) {
+				// 각 줄 처리 후 진행률 계산
+				loadedSize += results.meta.cursor; // 누적된 바이트 수
+				const percent = Math.min(Math.round((loadedSize / totalSize) * 100), 100);
+				// document.getElementById('progressBar').value = percent;
+				$msg.innerHTML = `타겟 CSV 로딩 진행중... ${percent}%`;
+				
+				if (results.data?.code) tarobj.push(results.data);
+			},
+			complete: function (_) {
+				$msg.innerHTML = `타겟 CSV 로딩 완료!! 총 ${tarobj.length}개 코드가 준비되었습니다.`;
+				console.log(tarobj);
+				isTargetReady = true;
+			}
+		});
+	};
+</script>
+
+<script is:inline>
+	document.onkeydown = (e) => {
+		if (e.code === 'Space') {
+			// const selected = spreadsheet.getSelected(false); // false: 좌표 객체 반환
+			// if (selected && selected.length > 0) {
+			// 	const { x, y } = selected[0]; // 첫 번째 선택 셀
+			// 	console.log(`선택된 셀: (${x}, ${y})`);
+			// }
+		}
+	};
+</script>
