@@ -1,0 +1,22 @@
+---
+---
+
+<script is:inline>
+    function* lazy_filter(fn, iterable) {
+        for (const item of iterable) {
+            if (fn(item)) yield item;
+        }
+    }
+
+    function* lazy_take(n, iterable) {
+        let i = 0;
+        for (const item of iterable) {
+            if (i++ === n) break;
+            yield item;
+        }
+    }
+
+    const lazy = {};
+    lazy.filter = lazy_filter;
+    lazy.take = lazy_take;
+</script>

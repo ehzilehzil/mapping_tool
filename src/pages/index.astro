@@ -1,140 +1,72 @@
 ---
 import Base from "../layouts/Base.astro";
-import Description from "../layouts/Description.astro";
-import Matching from "../layouts/Matching.astro";
+import Utils from "../layouts/Utils.astro";
 ---
 
 <Base>
-	<div class="fixed top-0 right-0 bottom-0 left-0 p-1">
-		<div class="h-full w-full flex items-center flex-col">
-			<div class="h-full w-full grow-0 shrink-0 basis-16 flex items-center gap-x-4">
-				<button id="openBtn">사용법 설명</button>
-				<Description />
-				<button id="openKeyword">키워드 CSV 로드</button>
-				<input type="file" id="keyword" accept=".csv" class="hidden"/>
-				<button id="openTarget">타겟코드 CSV 로드</button>
-				<input type="file" id="target" accept=".csv" class="hidden"/>
-			</div>
-			<div class="h-full w-full grow-0 shrink-0 basis-8 flex items-center gap-x-4">
-				<div id="msg">코드 매핑 위한 툴입니다. 처음이라면 바로 위 "사용법 설명" 클릭하세요~</div>
-			</div>
-			<div class="h-full w-full grow shrink-0 basis-0 flex-col flex items-center justify-center">
-				<div id="main-spreadsheet"></div>
-				<Matching />
-			</div>
+	<div class="fixed top-0 right-0 bottom-0 left-0 p-1 flex flex-col">
+		<div class="grow-0 shrink-0 basis-16 flex w-full items-center gap-x-2">
+			<button id="description_btn">사용법 설명</button>
+			<dialog id="description_modal">
+				<div class="my-4">설명서</div>
+				<ol class="my-4 list-decimal list-inside space-y-2 text-gray-800">
+					<li>매칭을 해야할 타겟 CSV 파일(ex. 88코드)을 로드합니다.</l1>
+					<li>"검색 키워드"에 키워드를 입력합니다. 복수 입력이 가능하며 공백으로 키워드들을 구분합니다.</li>
+					<li>아래에 키워드 매칭이 되는 이름을 가진 타겟 검색 결과가 나오는데 매칭된 순서대로 최대 20개만 나옵니다.</li>
+					<li>정확히 매칭되는 코드를 찾았다면, 더블클릭 -&gt; ctrl+C 클릭 하여 복사합니다.</li>
+				</ol>
+				<div class="my-4">ESC 키를 누르면 설명서를 닫습니다.</div>
+			</dialog>
+			<button id="target_btn">타겟 CSV 로드</button>
+			<input type="file" id="target" accept=".csv" class="hidden"/>
+		</div>
+		<div class="grow-0 shrink-0 basis-16 ">
+			<div>📢 <span id="msg">키워드들을 입력하면, 키워드들을 담고 있는 타겟 이름을 위에서부터 20개 보여주는 Tool 입니다.</span></div>
+		</div>
+		<div class="grow-0 shrink-0 basis-16 flex gap-x-2">
+			<div class="text-nowrap">검색 키워드: </div>
+			<input id="keyword_input" type="text" />
+		</div>
+		<div class="grow-1 shrink-0 basis-0">
+			<table class="w-full table-fixed text-center border">
+				<colgroup>
+					<col style="width: 25%;">
+					<col style="width: 50%;">
+					<col style="width: 25%;">
+				</colgroup>
+				<thead>
+					<tr>
+						<th>코드</th>
+						<th>이름</th>
+						<th>이미지</th>
+					</tr>
+				</thead>
+				<tbody id="search_result">
+
+				</tbody>
+			</table>
 		</div>
 	</div>
 </Base>
 
+<Utils />
+
 <script is:inline>
-// import { undefined } from "astro:schema";
-
-	// 글로벌 변수
-	let isKeywordReady = false;		// 키워드 csv 로드 완료 여부
-	let isTargetReady = true;		// 타겟 csv 로드 완료 여부
-	const $msg = document.getElementById("msg");
-	let keyobj = [];
 	let tarobj = [];
-
-	// 메인 스프레드시트 초기화
-	const MAX_ROWS = 20;
-	const MAX_COLS = 4;
-	const el = document.getElementById("main-spreadsheet");
-	const elWidthBase = el.parentElement.clientWidth - 50;
-	const msg = document.getElementById("msg");
-
-	let coord = {x: undefined, y: undefined};
-	const spreadsheet = jspreadsheet(el, {
-		data: [],
-		width: "100%",
-		columns: [
-			{ type: "text", title: "A 코드", width: elWidthBase / 10 },
-			{ type: "text", title: "A 이름", width: elWidthBase / 10 * 4 },
-			{ type: "text", title: "B 코드", width: elWidthBase / 10, readOnly: true },
-			{ type: "text", title: "B 이름", width: elWidthBase / 10 * 4, readOnly: true },
-		],
-		minDimensions: [4, 20],
-		contextmenu: {},
-		onbeforeinsertrow: function (_instance, rows) {
-			if (rows => MAX_ROWS - 1) return false;
-		},
-		onbeforeinsertcolumn: function (_instance, columns) {
-			if (columns => MAX_COLS - 1) return false;
-		},
-		onbeforedeleterow: function (_instance, _rows) { return false; },
-		onbeforedeletecolumn: function (_instance, _columns) { return false; },
-		// onselection: function(_instance, x1, y1, x2, y2, origin) {
-		// 	coord.x = x2;
-		// 	coord.y = y2;
-		// },
-		allowDeleteRow: false,
-		// onerror: function(spreadsheet, result) {
-		// 	// 아무 것도 하지 않음 → 기본 alert 무력화
-		// 	console.log('Jspreadsheet 오류 발생:', result);
-		// }
-	});
-
-	document.onkeydown = (e) => {
-		if (document.querySelector('dialog:modal') !== null) {
-			e.stopPropagation();
-		}
-	};
-
-
-	// 사용법, csv 로드
-	const $description = document.getElementById("description");
-	const $openBtn = document.getElementById("openBtn");
-	const $closeBtn = document.getElementById("closeBtn");
-	const $openKeyword = document.getElementById("openKeyword");
-	const $openTarget = document.getElementById("openTarget");
-	const $keyword = document.getElementById("keyword");
+	let isTargetReady = false;
+	const $description_btn = document.getElementById("description_btn");
+	const $description_modal = document.getElementById("description_modal");
+	const $target_btn = document.getElementById("target_btn");
 	const $target = document.getElementById("target");
-	const $matching = document.getElementById("matching");
+	const $msg = document.getElementById("msg");
+	const $keyword_input = document.getElementById("keyword_input");
+	const $search_result = document.getElementById("search_result");
 
-	$openBtn.onclick = () => $description.showModal();
-	$closeBtn.onclick = () => $description.close();
 
-	$openKeyword.onclick = () => $keyword.click();
-	$keyword.onchange = (e) => {
-		keyobj = [];
-		const file = e.target.files[0];
+	$description_btn.onclick = (e) => $description_modal.showModal();
 
-		if (!file) {
-			$msg.innerHTML = `키워드 CSV 파일이 선택되지 않았습니다!`;
-			return;
-		};
-		const totalSize = file.size;
-		let loadedSize = 0;
 
-		$msg.innerHTML = `키워드 CSV 로딩 진행중... 0%`;
-
-		// console.log(file);
-
-		Papa.parse(file, {
-			worker: true, // 성능 향상
-			header: true,
-			newline: "\r\n",
-			skipEmptyLines: true,
-			step: function (results, parser) {
-				// 각 줄 처리 후 진행률 계산
-				loadedSize += results.meta.cursor; // 누적된 바이트 수
-				const percent = Math.min(Math.round((loadedSize / totalSize) * 100), 100);
-				// document.getElementById('progressBar').value = percent;
-				$msg.innerHTML = `키워드 CSV 로딩 진행중... ${percent}%`;
-				
-				if (results.data?.keyword) keyobj.push(results.data);
-			},
-			complete: function (_) {
-				$msg.innerHTML = `키워드 CSV 로딩 완료!! 총 ${keyobj.length}개 키워드가 준비되었습니다.`;
-				// console.log(keyobj);
-				$openKeyword.innerHTML = "키워드 CSV 로드 완료";
-				$openKeyword.setAttribute("disabled", "true");
-				isKeywordReady = true;
-			}
-		});
-	};
-
-	$openTarget.onclick = () => $target.click();
+	$target_btn.onclick = () => $target.click();
 	$target.onchange = (e) => {
 		tarobj = [];
 		const file = e.target.files[0];
@@ -167,40 +99,43 @@ import Matching from "../layouts/Matching.astro";
 			complete: function (_) {
 				$msg.innerHTML = `타겟 CSV 로딩 완료!! 총 ${tarobj.length}개 코드가 준비되었습니다.`;
 				// console.log(tarobj);
-				$openTarget.innerHTML = "타겟 CSV 로드 완료";
-				$openTarget.setAttribute("disabled", "true");
+				$target_btn.innerHTML = "타겟 CSV 로드 완료";
+				$target_btn.setAttribute("disabled", "true");
 				isTargetReady = true;
 			}
 		});
 	};
 
+	$keyword_input.oninput = (e) => {
+		if (!isTargetReady) {
+			$msg.innerHTML = "타겟 CSV 파일을 먼저 로드해야합니다.";
+		}
 
-	const selected = undefined;
 
-	const main_spreadsheet_btn = [];
-	for (let i = 0; i < MAX_ROWS; i++) {
-		main_spreadsheet_btn.push(document.querySelector(`#main-spreadsheet table td.jexcel_row[data-y="${i}"]`));
-	}
-	main_spreadsheet_btn.forEach((x, i) => {
-		x.onclick = (e) => {
-			// spreadsheet.setValue(`A${i+1}`, `${i}`, true);
-			// $matching.dataset.row = i;
-			
+		$search_result.innerHTML = ``;
+		let result = "";
 
-			if (isKeywordReady && isTargetReady) {
-				$matching.showModal();
-				$msg.innerHTML = `${i+1} 행의 코드와 이름을 매핑합니다.`;
+		let keywords = e.currentTarget.value.trim().replace(/\s+/g, " ").split(" ");
+		if (!keywords.length || keywords[0] === "") return;
+		
+		if (keywords.length > 10) keywords = keywords.slice(0, 10);
+        console.log(keywords);
+		
+		let f = lazy.take(20,
+			lazy.filter((x) => {
+				let t = x.name;
+				return keywords.every((y) => t.indexOf(y) !== -1);
+			}, tarobj)
+		);
 
-				setTimeout(() => {
-					$keyfinded.focus();
-					// $keyfinded.click();
-				}, 100);
-
-				do_matching(i, spreadsheet, keyobj, tarobj);
-			} else {
-				$msg.innerHTML = `먼저 키워드, 타겟 CSV 파일을 로드하세요~`;
+		for (let x of f) {
+			let t = x.name;
+			for (let y of keywords) {
+				t = t.replace(new RegExp(y, 'g'), `<b>${y}</b>`);
 			}
-		};
-	});
+			result += `<tr><td>${x.code}</td><td>${t}</td><td><a href="${x.image}" target="_blank">${x.image ? "이미지" : ""}</a></td></li>`;
+		}
 
+		$search_result.innerHTML = result;
+	};
 </script>

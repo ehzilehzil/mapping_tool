@@ -1,0 +1,110 @@
+<!DOCTYPE html><html lang="ko"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><!-- <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/index.min.js" is:inline></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jspreadsheet.min.css" type="text/css" />
+        <script src="https://cdn.jsdelivr.net/npm/jsuites/dist/jsuites.min.js" is:inline></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites/dist/jsuites.min.css" type="text/css" /> --><script src="https://cdn.jsdelivr.net/npm/papaparse@5.5.3/papaparse.min.js"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/papaparse@5.5.3/player/player.min.css" type="text/css"><title>매핑 툴</title><link rel="stylesheet" href="/_astro/index.BeJOrvjE.css"></head> <body>  <div class="fixed top-0 right-0 bottom-0 left-0 p-1 flex flex-col"> <div class="grow-0 shrink-0 basis-16 flex w-full items-center gap-x-2"> <button id="description_btn">사용법 설명</button> <dialog id="description_modal"> <div class="my-4">설명서</div> <ol class="my-4 list-decimal list-inside space-y-2 text-gray-800"> <li>매칭을 해야할 타겟 CSV 파일(ex. 88코드)을 로드합니다.
+</li><li>"검색 키워드"에 키워드를 입력합니다. 복수 입력이 가능하며 공백으로 키워드들을 구분합니다.</li> <li>아래에 키워드 매칭이 되는 이름을 가진 타겟 검색 결과가 나오는데 매칭된 순서대로 최대 20개만 나옵니다.</li> <li>정확히 매칭되는 코드를 찾았다면, 더블클릭 -&gt; ctrl+C 클릭 하여 복사합니다.</li> </ol> <div class="my-4">ESC 키를 누르면 설명서를 닫습니다.</div> </dialog> <button id="target_btn">타겟 CSV 로드</button> <input type="file" id="target" accept=".csv" class="hidden"> </div> <div class="grow-0 shrink-0 basis-16 "> <div>📢 <span id="msg">키워드들을 입력하면, 키워드들을 담고 있는 타겟 이름을 위에서부터 20개 보여주는 Tool 입니다.</span></div> </div> <div class="grow-0 shrink-0 basis-16 flex gap-x-2"> <div class="text-nowrap">검색 키워드: </div> <input id="keyword_input" type="text"> </div> <div class="grow-1 shrink-0 basis-0"> <table class="w-full table-fixed text-center border"> <colgroup> <col style="width: 25%;"> <col style="width: 50%;"> <col style="width: 25%;"> </colgroup> <thead> <tr> <th>코드</th> <th>이름</th> <th>이미지</th> </tr> </thead> <tbody id="search_result"></tbody> </table> </div> </div>  </body></html> <script>
+    function* lazy_filter(fn, iterable) {
+        for (const item of iterable) {
+            if (fn(item)) yield item;
+        }
+    }
+
+    function* lazy_take(n, iterable) {
+        let i = 0;
+        for (const item of iterable) {
+            if (i++ === n) break;
+            yield item;
+        }
+    }
+
+    const lazy = {};
+    lazy.filter = lazy_filter;
+    lazy.take = lazy_take;
+</script> <script>
+	let tarobj = [];
+	let isTargetReady = false;
+	const $description_btn = document.getElementById("description_btn");
+	const $description_modal = document.getElementById("description_modal");
+	const $target_btn = document.getElementById("target_btn");
+	const $target = document.getElementById("target");
+	const $msg = document.getElementById("msg");
+	const $keyword_input = document.getElementById("keyword_input");
+	const $search_result = document.getElementById("search_result");
+
+
+	$description_btn.onclick = (e) => $description_modal.showModal();
+
+
+	$target_btn.onclick = () => $target.click();
+	$target.onchange = (e) => {
+		tarobj = [];
+		const file = e.target.files[0];
+
+		if (!file) {
+			$msg.innerHTML = `타겟 CSV 파일이 선택되지 않았습니다!`;
+			return;
+		};
+		const totalSize = file.size;
+		let loadedSize = 0;
+
+		$msg.innerHTML = `타겟 CSV 로딩 진행중... 0%`;
+
+		// console.log(file);
+
+		Papa.parse(file, {
+			worker: true, // 성능 향상
+			header: true,
+			newline: "\r\n",
+			skipEmptyLines: true,
+			step: function (results, parser) {
+				// 각 줄 처리 후 진행률 계산
+				loadedSize += results.meta.cursor; // 누적된 바이트 수
+				const percent = Math.min(Math.round((loadedSize / totalSize) * 100), 100);
+				// document.getElementById('progressBar').value = percent;
+				$msg.innerHTML = `타겟 CSV 로딩 진행중... ${percent}%`;
+				
+				if (results.data?.code) tarobj.push(results.data);
+			},
+			complete: function (_) {
+				$msg.innerHTML = `타겟 CSV 로딩 완료!! 총 ${tarobj.length}개 코드가 준비되었습니다.`;
+				// console.log(tarobj);
+				$target_btn.innerHTML = "타겟 CSV 로드 완료";
+				$target_btn.setAttribute("disabled", "true");
+				isTargetReady = true;
+			}
+		});
+	};
+
+	$keyword_input.oninput = (e) => {
+		if (!isTargetReady) {
+			$msg.innerHTML = "타겟 CSV 파일을 먼저 로드해야합니다.";
+		}
+
+
+		$search_result.innerHTML = ``;
+		let result = "";
+
+		let keywords = e.currentTarget.value.trim().replace(/\s+/g, " ").split(" ");
+		if (!keywords.length || keywords[0] === "") return;
+		
+		if (keywords.length > 10) keywords = keywords.slice(0, 10);
+        console.log(keywords);
+		
+		let f = lazy.take(20,
+			lazy.filter((x) => {
+				let t = x.name;
+				return keywords.every((y) => t.indexOf(y) !== -1);
+			}, tarobj)
+		);
+
+		for (let x of f) {
+			let t = x.name;
+			for (let y of keywords) {
+				t = t.replace(new RegExp(y, 'g'), `<b>${y}</b>`);
+			}
+			result += `<tr><td>${x.code}</td><td>${t}</td><td><a href="${x.image}" target="_blank">${x.image ? "이미지" : ""}</a></td></li>`;
+		}
+
+		$search_result.innerHTML = result;
+	};
+</script>

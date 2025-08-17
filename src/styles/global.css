@@ -1,6 +1,34 @@
 @import "tailwindcss";
 
+dialog {
+    @apply fixed inset-16 w-auto h-auto rounded-xl p-4 outline-1;
+}
+
 button {
+    @apply text-base bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-4 rounded outline-0 cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+input[type="text"] {
+    @apply w-full h-8 px-4 py-1 border border-gray-300 rounded-md text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+b {
+    @apply bg-yellow-500;
+}
+
+a {
+    @apply text-blue-600 hover:text-blue-800 underline;
+}
+
+table {
+    @apply border-collapse;
+}
+
+th, td {
+    @apply border-gray-300 p-1 border;
+}
+
+/* button {
     @apply cursor-pointer px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 active:bg-blue-800 transition duration-300;
 }
 
@@ -22,4 +50,4 @@ dialog {
 
 b {
     background-color: yellow;
-}
+} */
